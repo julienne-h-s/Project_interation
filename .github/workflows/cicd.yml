@@ -25,8 +25,6 @@ jobs:
       - name: Save training logs
         run: docker logs trainer_container > trainer_logs.txt
 
-
-
       - name: Copy trained model from container
         run: |
           docker cp trainer_container:/app/saved_model.pth saved_model.pth
@@ -44,6 +42,7 @@ jobs:
           name: training-logs
           path: trainer_logs.txt
 
+
   test_inference:
     name: Test Inference & Benchmark
     runs-on: ubuntu-latest
@@ -57,10 +56,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: trained-model
-          path: ./model_artifacts
-
-      - name: Move model into project root
-        run: mv model_artifacts/saved_model.pth saved_model.pth
+          path: .
 
       - name: Build inference image
         run: docker build -t speech-api -f Dockerfile.multistage --target runtime .
@@ -85,6 +81,8 @@ jobs:
           name: benchmark
           path: metrics.json
 
+
+
   publish_image:
     name: Push Image to GHCR
     runs-on: ubuntu-latest
@@ -94,6 +92,16 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      # === ДУЖЕ ВАЖЛИВО: знову завантажуємо модель ===
+      - name: Download trained model
+        uses: actions/download-artifact@v4
+        with:
+          name: trained-model
+          path: .
+
+      - name: Check model exists
+        run: ls -l saved_model.pth
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v2
