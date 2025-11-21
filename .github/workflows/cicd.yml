@@ -1,110 +1,103 @@
-name: CI/CD Pipeline for Speech Commands Project
+name: ML CI/CD Pipeline
 
 on:
   push:
-    branches: ["master"]
+    branches: ["main"]
   pull_request:
-    branches: ["master"]
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
-
-  ####################################################################
-  # 1) TRAINING JOB — ТРЕНУЄ МОДЕЛЬ У DOCKER CONTAINER
-  ####################################################################
-  train-model:
-    name: Train Model in Docker
+  train_model:
+    name: Train ML Model in Docker
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+      - name: Build training image
+        run: docker build -t speech-trainer -f Dockerfile.multistage --target trainer .
 
-    - name: Build Training Image
-      run: |
-        docker build -t speech-trainer -f Dockerfile.multistage --target trainer .
+      - name: Run training container
+        run: |
+          docker run --name trainer_container speech-trainer | tee trainer_logs.txt
 
-    - name: Run Training Container
-      run: |
-        docker run --rm -v ${{ github.workspace }}:/app speech-trainer
+      - name: Copy trained model from container
+        run: |
+          docker cp trainer_container:/app/saved_model.pth saved_model.pth
+          ls -l saved_model.pth
 
-    - name: Upload trained model as artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: trained-model
-        path: saved_model.pth
+      - name: Upload trained model artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: trained-model
+          path: saved_model.pth
 
+      - name: Upload training logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: training-logs
+          path: trainer_logs.txt
 
-  ####################################################################
-  # 2) TEST-MODEL JOB — ПЕРЕВІРЯЄ ЯК ПРАЦЮЄ МОДЕЛЬ
-  ####################################################################
-  test-model:
-    name: Validate Trained Model
+  test_inference:
+    name: Test Inference & Benchmark
     runs-on: ubuntu-latest
-    needs: train-model
+    needs: train_model
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-    - name: Download trained model
-      uses: actions/download-artifact@v3
-      with:
-        name: trained-model
+      - name: Download trained model
+        uses: actions/download-artifact@v4
+        with:
+          name: trained-model
+          path: ./model_artifacts
 
-    - name: Run inference test
-      run: |
-        echo "import torch; print('Loading model...'); \
-        model=torch.load('saved_model.pth', map_location='cpu'); print('OK')" \
-        > test_script.py
+      - name: Move model into project root
+        run: mv model_artifacts/saved_model.pth saved_model.pth
 
-        python3 test_script.py
+      - name: Build inference image
+        run: docker build -t speech-api -f Dockerfile.multistage --target runtime .
 
-    - name: Save test log
-      uses: actions/upload-artifact@v3
-      with:
-        name: inference-test-log
-        path: test_script.py
+      - name: Run inference container
+        run: |
+          docker run -d -p 5000:5000 --name inference speech-api
+          echo "Waiting for API to start..."
+          sleep 8
 
+      - name: Install Python deps for benchmark
+        run: pip install requests torch torchaudio
 
-  ####################################################################
-  # 3) BUILD & PUSH INFERENCE IMAGE TO GHCR
-  ####################################################################
-  build-and-push:
-    name: Build & Push Inference Docker Image
+      - name: Run benchmark
+        run: python benchmark.py
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark
+          path: metrics.json
+
+  publish_image:
+    name: Push Image to GHCR
     runs-on: ubuntu-latest
-    needs: [train-model, test-model]
+    needs: [train_model, test_inference]
+    if: github.ref == 'refs/heads/main'
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-    - name: Download trained model
-      uses: actions/download-artifact@v3
-      with:
-        name: trained-model
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.GHCR_USERNAME }}
+          password: ${{ secrets.GHCR_PAT }}
 
-    - name: Log in to GitHub Container Registry
-      uses: docker/login-action@v2
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GHCR_PAT }}
+      - name: Build production image
+        run: docker build -t ghcr.io/${{ github.repository }}/speech-api:latest -f Dockerfile.multistage --target runtime .
 
-    - name: Build inference image
-      run: |
-        docker build -t ghcr.io/${{ github.repository_owner }}/speech-api:latest \
-          --target runtime -f Dockerfile.multistage .
-
-    - name: Push inference image
-      run: |
-        docker push ghcr.io/${{ github.repository_owner }}/speech-api:latest
-
-    - name: Upload image metadata
-      uses: actions/upload-artifact@v3
-      with:
-        name: docker-image-info
-        path: .
+      - name: Push image
+        run: docker push ghcr.io/${{ github.repository }}/speech-api:latest
