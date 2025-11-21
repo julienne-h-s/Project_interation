@@ -1,0 +1,7 @@
+*.pth
+*.pt
+SpeechCommands/
+__pycache__/
+.env
+*.tar
+.DS_Store

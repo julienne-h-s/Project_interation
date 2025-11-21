@@ -1,19 +1,41 @@
-FROM python:3.10-slim
+########### STAGE 1 — TRAINING ############
+
+FROM python:3.10-slim AS trainer
 
 WORKDIR /app
 
 COPY requirements.txt .
-
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Копіюємо тільки код і модель
+# копіюємо код для тренування
+COPY model.py .
+COPY train_docker.py ./train.py
+
+# папка для датасету (torchaudio сам завантажить у неї дані)
+RUN mkdir -p /app/SpeechCommands
+
+# запускаємо тренування і генеруємо saved_model.pth
+RUN python train.py
+
+
+
+########### STAGE 2 — INFERENCE ############
+
+FROM python:3.10-slim AS runtime
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# копіюємо модель зі Stage 1
+COPY --from=trainer /app/saved_model.pth ./saved_model.pth
+
+# копіюємо лише інференс-код
 COPY model.py .
 COPY infer.py .
 COPY app.py .
 COPY templates ./templates
-COPY saved_model.pth .
 
-# Порт Flask
 EXPOSE 5000
-
 CMD ["python", "app.py"]
