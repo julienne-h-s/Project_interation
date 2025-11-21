@@ -1,0 +1,19 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Копіюємо тільки код і модель
+COPY model.py .
+COPY infer.py .
+COPY app.py .
+COPY templates ./templates
+COPY saved_model.pth .
+
+# Порт Flask
+EXPOSE 5000
+
+CMD ["python", "app.py"]

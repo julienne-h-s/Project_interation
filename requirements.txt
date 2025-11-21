@@ -1,0 +1,6 @@
+Flask==3.0.0
+torch==2.1.0+cpu
+torchaudio==2.1.0+cpu
+--extra-index-url https://download.pytorch.org/whl/cpu
+numpy<2
+soundfile

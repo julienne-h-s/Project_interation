@@ -1,0 +1,8 @@
+__pycache__/
+*.mp3
+*.wav
+dataset/
+SpeechCommands/
+venv/
+.env
+.git/

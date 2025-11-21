@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>Speech Command Recognition</title>
+    <style>
+        body {
+            background: #eef2f7;
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            text-align: center;
+        }
+        .container {
+            width: 500px;
+            margin: auto;
+            padding: 25px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        table {
+            width: 100%;
+            margin-top: 15px;
+            border-collapse: collapse;
+        }
+        td, th {
+            padding: 8px;
+            border-bottom: 1px solid #ccc;
+        }
+        .highlight {
+            background: #e6f1ff;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🎤 Speech Command Recognition</h2>
+
+    <input type="file" id="audioFile" accept=".wav">
+    <button onclick="sendAudio()" style="margin-top:15px;padding:10px;width:100%;">Розпізнати команду</button>
+
+    <div id="result" style="margin-top:20px;font-size:18px;"></div>
+
+    <div id="details"></div>
+</div>
+
+<script>
+async function sendAudio() {
+    const fileInput = document.getElementById("audioFile");
+    const resultDiv = document.getElementById("result");
+    const detailsDiv = document.getElementById("details");
+
+    if (!fileInput.files.length) {
+        resultDiv.innerHTML = "❗ Виберіть WAV-файл!";
+        return;
+    }
+
+    resultDiv.innerHTML = "⏳ Обробка...";
+    detailsDiv.innerHTML = "";
+
+    const formData = new FormData();
+    formData.append("file", fileInput.files[0]);
+
+    const response = await fetch("/predict", { method: "POST", body: formData });
+
+    const data = await response.json();
+
+    if (data.error) {
+        resultDiv.innerHTML = "❌ Помилка!";
+        return;
+    }
+
+    // Основний результат
+    resultDiv.innerHTML = `
+        <b>Розпізнана команда:</b> ${data.command}<br>
+        <b>Впевненість моделі:</b> ${data.confidence.toFixed(2)}%<br>
+        <b>Latency:</b> ${data.latency_ms} ms
+    `;
+
+    // Таблиця з усіма класами
+    let table = `
+        <h3>📊 Детальна статистика по класах</h3>
+        <table>
+            <tr><th>Команда</th><th>Ймовірність</th></tr>
+    `;
+
+    for (const [cls, prob] of Object.entries(data.per_class)) {
+        const highlight = cls === data.command ? "class='highlight'" : "";
+        table += `<tr ${highlight}><td>${cls}</td><td>${prob.toFixed(2)}%</td></tr>`;
+    }
+
+    table += "</table>";
+
+    detailsDiv.innerHTML = table;
+}
+</script>
+
+</body>
+</html>
