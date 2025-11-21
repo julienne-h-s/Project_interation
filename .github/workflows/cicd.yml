@@ -20,8 +20,12 @@ jobs:
         run: docker build -t speech-trainer -f Dockerfile.multistage --target trainer .
 
       - name: Run training container
-        run: |
-          docker run --name trainer_container speech-trainer | tee trainer_logs.txt
+        run: docker run --name trainer_container speech-trainer
+
+      - name: Save training logs
+        run: docker logs trainer_container > trainer_logs.txt
+
+
 
       - name: Copy trained model from container
         run: |

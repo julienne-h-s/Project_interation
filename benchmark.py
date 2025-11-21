@@ -3,8 +3,8 @@ import time
 import json
 import os
 
-TEST_DIR = "test_audio"  
-API_URL = "http://localhost:5000/predict"
+TEST_DIR = "test_audio"
+API_URL = "http://127.0.0.1:5000/predict"
 
 results = []
 
@@ -13,18 +13,21 @@ for fname in os.listdir(TEST_DIR):
         continue
 
     path = os.path.join(TEST_DIR, fname)
-    files = {"file": open(path, "rb")}
 
-    start = time.time()
-    r = requests.post(API_URL, files=files)
-    end = time.time()
+    # Коректно відкриваємо файл
+    with open(path, "rb") as f:
+        files = {"file": f}
+
+        start = time.time()
+        r = requests.post(API_URL, files=files)
+        end = time.time()
 
     latency = (end - start) * 1000
 
     if r.status_code == 200:
-        pred = r.json()["command"]
+        pred = r.json().get("command", "UNKNOWN")
     else:
-        pred = "ERROR"
+        pred = f"ERROR ({r.status_code})"
 
     results.append({
         "file": fname,
