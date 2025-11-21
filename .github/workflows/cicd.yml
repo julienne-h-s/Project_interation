@@ -68,7 +68,10 @@ jobs:
           sleep 8
 
       - name: Install Python deps for benchmark
-        run: pip install requests torch torchaudio
+        run: |
+          pip install requests
+          pip install torch==2.2.0+cpu torchaudio==2.2.0+cpu \
+            -f https://download.pytorch.org/whl/cpu
 
       - name: Run benchmark
         run: python benchmark.py
