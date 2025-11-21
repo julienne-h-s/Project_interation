@@ -17,7 +17,7 @@ selected_commands = ["yes", "no", "up", "down"]
 num_classes = len(selected_commands)
 
 batch_size = 32
-epochs = 5 
+epochs = 15 
 
 # === Dataset-клас ===
 class MySpeechCommands(SPEECHCOMMANDS):
