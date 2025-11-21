@@ -4,18 +4,20 @@ FROM python:3.10-slim AS trainer
 
 WORKDIR /app
 
+# Встановлення залежностей
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# копіюємо код для тренування
+# Копіюємо тренувальний код
 COPY model.py .
-COPY train_docker.py ./train.py
+COPY train_docker.py .
 
-# папка для датасету (torchaudio сам завантажить у неї дані)
+# Папка для датасету (torchaudio завантажить сам)
 RUN mkdir -p /app/SpeechCommands
 
-# запускаємо тренування і генеруємо saved_model.pth
-RUN python train.py
+# ВАЖЛИВО: CMD → запускається лише при docker run,
+# GitHub Actions зможе забрати логи через docker logs
+CMD ["python", "-u", "train_docker.py"]
 
 
 
@@ -25,17 +27,19 @@ FROM python:3.10-slim AS runtime
 
 WORKDIR /app
 
+# Пакети для інференсу
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# копіюємо модель зі Stage 1
+# Копіюємо модель з першого етапу
 COPY --from=trainer /app/saved_model.pth ./saved_model.pth
 
-# копіюємо лише інференс-код
+# Копіюємо код інференсу
 COPY model.py .
 COPY infer.py .
 COPY app.py .
 COPY templates ./templates
 
 EXPOSE 5000
+
 CMD ["python", "app.py"]
