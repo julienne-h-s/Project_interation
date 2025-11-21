@@ -70,7 +70,7 @@ jobs:
       - name: Install Python deps for benchmark
         run: |
           pip install requests
-          pip install torch==2.2.0+cpu torchaudio==2.2.0+cpu
+          pip install torch==2.2.0 torchaudio==2.2.0 --index-url https://download.pytorch.org/whl/cpu
 
       - name: Run benchmark
         run: python benchmark.py
