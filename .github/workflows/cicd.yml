@@ -21,11 +21,11 @@ jobs:
 
       - name: Run training container
         run: |
-          docker run --name trainer_container speech-trainer | tee trainer_logs.txt
+          docker run --rm --name trainer_container speech-trainer | tee trainer_logs.txt
 
       - name: Copy trained model from container
         run: |
-          docker cp trainer_container:/app/saved_model.pth saved_model.pth
+          docker cp trainer_container:/app/saved_model.pth saved_model.pth || true
           ls -l saved_model.pth
 
       - name: Upload trained model artifact
@@ -98,8 +98,10 @@ jobs:
           username: ${{ secrets.GHCR_USERNAME }}
           password: ${{ secrets.GHCR_PAT }}
 
-      - name: Build production image
-        run: docker build -t ghcr.io/${{ github.repository }}/speech-api:latest -f Dockerfile.multistage --target runtime .
+      - name: Build & Push image (lowercase repo)
+        run: |
+          REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "Using GHCR repo: ghcr.io/$REPO"
 
-      - name: Push image
-        run: docker push ghcr.io/${{ github.repository }}/speech-api:latest
+          docker build -t ghcr.io/$REPO/speech-api:latest -f Dockerfile.multistage --target runtime .
+          docker push ghcr.io/$REPO/speech-api:latest
