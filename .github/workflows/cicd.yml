@@ -46,7 +46,7 @@ jobs:
     needs: train_model
 
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Download trained model
@@ -70,8 +70,7 @@ jobs:
       - name: Install Python deps for benchmark
         run: |
           pip install requests
-          pip install torch==2.1.2 torchaudio==2.1.2 \
-            --index-url https://download.pytorch.org/whl/cpu
+          pip install torch==2.2.0+cpu torchaudio==2.2.0+cpu
 
       - name: Run benchmark
         run: python benchmark.py
@@ -89,7 +88,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
 
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Log in to GitHub Container Registry
